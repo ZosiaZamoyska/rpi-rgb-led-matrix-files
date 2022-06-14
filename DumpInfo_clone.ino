@@ -39,10 +39,16 @@
 #include <MFRC522.h>
 
 #define RST_PIN         9          // Configurable, see typical pin layout above
-#define SS_PIN          3         // Configurable, see typical pin layout above
-#define SS_PIN2 10
-MFRC522 mfrc522[2];  // Create MFRC522 instance
+#define SS_PIN          8         // Configurable, see typical pin layout above
+#define SS_PIN2 7
+#define SS_PIN3 6
+#define SS_PIN4 5
+#define SS_PIN5 4
+#define SS_PIN6 3
 
+const int devices  = 6;
+
+MFRC522 mfrc522[devices];  // Create MFRC522 instance
 unsigned long getID(int i){
   if ( ! mfrc522[i].PICC_ReadCardSerial()) { //Since a PICC placed get Serial and continue
     return -1;
@@ -55,12 +61,32 @@ unsigned long getID(int i){
   mfrc522[i].PICC_HaltA(); // Stop reading
   return hex_num;
 }
+void sendRequest(int i) {
+   mfrc522[i].PCD_Init();
+
+if (mfrc522[i].PICC_IsNewCardPresent() || mfrc522[i].PICC_ReadCardSerial()) {
+    unsigned long uid = getID(i);
+    if(uid != -1){
+      Serial.print(i);
+       Serial.print(" Card detected, UID: "); 
+       Serial.println(uid);
+    }
+  }
+  mfrc522[i].PICC_HaltA();
+  mfrc522[i].PCD_StopCrypto1();
+
+}
 void setup() {
 	Serial.begin(9600);		// Initialize serial communications with the PC
 	while (!Serial);		// Do nothing if no serial port is opened (added for Arduinos based on ATMEGA32U4)
 	SPI.begin();			// Init SPI bus
   mfrc522[0].PCD_Init(SS_PIN, RST_PIN);   // Init MFRC522
   mfrc522[1].PCD_Init(SS_PIN2, RST_PIN);   // Init MFRC522
+  mfrc522[2].PCD_Init(SS_PIN3, RST_PIN);   // Init MFRC522
+  mfrc522[3].PCD_Init(SS_PIN4, RST_PIN);   // Init MFRC522
+  mfrc522[4].PCD_Init(SS_PIN5, RST_PIN);   // Init MFRC522
+  mfrc522[5].PCD_Init(SS_PIN6, RST_PIN);   // Init MFRC522
+
 	delay(4);				// Optional delay. Some board do need more time after init to be ready, see Readme
 	//mfrc522.PCD_DumpVersionToSerial();	// Show details of PCD - MFRC522 Card Reader details
 	Serial.println(F("Scan PICC to see UID, SAK, type, and data blocks..."));
@@ -68,29 +94,10 @@ void setup() {
 
 void loop() {
 	// Reset the loop if no new card present on the sensor/reader. This saves the entire process when idle.
-    mfrc522[0].PCD_Init();
-
-if (mfrc522[0].PICC_IsNewCardPresent() || mfrc522[0].PICC_ReadCardSerial()) {
-    unsigned long uid = getID(0);
-    if(uid != -1){
-       Serial.print("1 Card detected, UID: "); 
-       Serial.println(uid);
-    }
-  }
-  mfrc522[0].PICC_HaltA();
-  mfrc522[0].PCD_StopCrypto1();
-
-  mfrc522[1].PCD_Init();
-  if (mfrc522[1].PICC_IsNewCardPresent() || mfrc522[1].PICC_ReadCardSerial()) {
-    unsigned long uid = getID(1);
-    if(uid != -1){
-       Serial.print("2 Card detected, UID: "); 
-       Serial.println(uid);
-    }
-  } 
-  mfrc522[1].PICC_HaltA();
-  mfrc522[1].PCD_StopCrypto1();
-  //delay(100);
+   sendRequest(0);
+   sendRequest(1);
+    sendRequest(2);
+  delay(100);
 
 
 	// Select one of the cards
