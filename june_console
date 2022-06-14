@@ -1,0 +1,298 @@
+/*
+ * --------------------------------------------------------------------------------------------------------------------
+ * Example sketch/program showing how to read data from a PICC to serial.
+ * --------------------------------------------------------------------------------------------------------------------
+ * This is a MFRC522 library example; for further details and other examples see: https://github.com/miguelbalboa/rfid
+ * 
+ * Example sketch/program showing how to read data from a PICC (that is: a RFID Tag or Card) using a MFRC522 based RFID
+ * Reader on the Arduino SPI interface.
+ * 
+ * When the Arduino and the MFRC522 module are connected (see the pin layout below), load this sketch into Arduino IDE
+ * then verify/compile and upload it. To see the output: use Tools, Serial Monitor of the IDE (hit Ctrl+Shft+M). When
+ * you present a PICC (that is: a RFID Tag or Card) at reading distance of the MFRC522 Reader/PCD, the serial output
+ * will show the ID/UID, type and any data blocks it can read. Note: you may see "Timeout in communication" messages
+ * when removing the PICC from reading distance too early.
+ * 
+ * If your reader supports it, this sketch/program will read all the PICCs presented (that is: multiple tag reading).
+ * So if you stack two or more PICCs on top of each other and present them to the reader, it will first output all
+ * details of the first and then the next PICC. Note that this may take some time as all data blocks are dumped, so
+ * keep the PICCs at reading distance until complete.
+ * 
+ * @license Released into the public domain.
+ * 
+ * Typical pin layout used:
+ * -----------------------------------------------------------------------------------------
+ *             MFRC522      Arduino       Arduino   Arduino    Arduino          Arduino
+ *             Reader/PCD   Uno/101       Mega      Nano v3    Leonardo/Micro   Pro Micro
+ * Signal      Pin          Pin           Pin       Pin        Pin              Pin
+ * -----------------------------------------------------------------------------------------
+ * RST/Reset   RST          9             5         D9         RESET/ICSP-5     RST
+ * SPI SS      SDA(SS)      10            53        D10        10               10
+ * SPI MOSI    MOSI         11 / ICSP-4   51        D11        ICSP-4           16
+ * SPI MISO    MISO         12 / ICSP-1   50        D12        ICSP-1           14
+ * SPI SCK     SCK          13 / ICSP-3   52        D13        ICSP-3           15
+ *
+ * More pin layouts for other boards can be found here: https://github.com/miguelbalboa/rfid#pin-layout
+ */
+#include <Tone.h>
+#include <SPI.h>
+#include <MFRC522.h>
+
+#define RST_PIN         9          // Configurable, see typical pin layout above
+#define SS_PIN          8         // Configurable, see typical pin layout above
+#define SS_PIN2 7
+#define SS_PIN3 6
+#define SS_PIN4 5
+#define SS_PIN5 4
+#define SS_PIN6 3
+
+unsigned int tcnt2;
+char zmienna;
+const int devices  = 6;
+
+/* Frequency Output Pins */
+#define FREQ1 5
+#define FREQ2 4
+#define FREQ3 3
+
+/* Toggle HIGH or LOW digital write */
+int toggle1 = 0;
+int toggle2 = 0;
+int toggle3 = 0;
+/* Keep track of when each note needs to be switched */
+int count1 = 0;
+int count2 = 0;
+int count3 = 0;
+
+
+MFRC522 mfrc522[devices];  // Create MFRC522 instance
+Tone tone1;
+Tone tone2;
+Tone tone3;
+
+const int numTones = 46;
+int tones1[] = {587, 784, 880, 988, 988, 988, 988, 988, 988, 988, 932, 988, 784, 784, 784, 784, 784, 784, 784, 880, 988, 1047, 1047, 1319, 1319, 1319, 1319, 1175, 1047, 988, 988, 988, 784, 880, 988, 1047, 1047, 1319, 1319, 1319, 1319, 1175, 1047, 988, 988, 784, 784, 784, 784, 880, 988, 988, 988, 1047, 880, 880, 880, 988, 784, 784, 784, 784};
+
+#define  c        261.626    // 261 Hz
+#define  d        293.665    // 294 Hz
+#define  e        329.628    // 329 Hz
+#define  f        349.228    // 349 Hz
+#define  g        391.995    // 392 Hz
+#define  a        440.000    // 440 Hz
+#define  b        493.883    // 493 Hz
+#define  C        523.251    // 523 Hz
+#define  R1        0
+#define  R -1
+
+int mapa[10000];
+
+int melody[] = {  c, c, d, e, e, R1,
+                  e, d, e, c, c, R1,
+                  c, d, e, f, a, R1,
+                  a, g, f, e, R1,
+                  c, d, e, f, a, R1,
+                  a, g, f, e, c, R1,
+                  g, c, d, e, f, R1, 
+                  d, d, e, c, R1
+};
+int noteDurations[] = { 4, 4, 4, 4, 4, 8,
+                        4, 4, 4, 4, 4, 8,
+                        4, 4, 4, 4, 4, 8,
+                        4, 4, 4, 4, 8,
+                        4, 4, 4, 4, 4, 8,
+                        4, 4, 4, 4, 4, 8,
+                        4, 4, 4, 4, 4, 8,
+                        4, 4, 4, 4, 8
+                      };
+
+                  
+int chords[] = { R, R, R, R, R, R,
+                 R, R, R, R, R, R, 
+                 R, R, R, R, R, R,
+                 R, R, R, R, R,
+                 R, R, R, R, R, R,
+                 R, R, R, R, R, R,
+                 R, R, R, R, R, R,
+                 R, R, R, R, R, R,
+                 R, R, R, R, R};  
+                                 
+int chords1[] = { R, R, R, 0, 0, R,
+                 R, R, R, 0, 0, R, 
+                 R, R, R, 3, 3, R,
+                 R, R, 0, 0, R,
+                 R, R, R, 3, 3, R,
+                 R, R, R, 0, 0, R,
+                 R, R, R, 0, 0, R,
+                 R, R, R, 0, 0, R,
+                 4, 4, R, 0, R};  
+int minor1[] = {c, d, e, f, g, a, b};
+int minor2[] = {g, f, g, c, d, c, d};
+
+
+unsigned long getID(int i){
+  if ( ! mfrc522[i].PICC_ReadCardSerial()) { //Since a PICC placed get Serial and continue
+    return -1;
+  }
+  unsigned long hex_num;
+  hex_num =  mfrc522[i].uid.uidByte[0] << 24;
+  hex_num += mfrc522[i].uid.uidByte[1] << 16;
+  hex_num += mfrc522[i].uid.uidByte[2] <<  8;
+  hex_num += mfrc522[i].uid.uidByte[3];
+  mfrc522[i].PICC_HaltA(); // Stop reading
+  return hex_num;
+}
+void sendRequest(int i) {
+   mfrc522[i].PCD_Init();
+
+if (mfrc522[i].PICC_IsNewCardPresent() || mfrc522[i].PICC_ReadCardSerial()) {
+    unsigned long uid = getID(i);
+    if(uid != -1){
+      Serial.print(i);
+       Serial.print(" Card detected, UID: "); 
+       Serial.println(uid);
+    }
+  }
+  mfrc522[i].PICC_HaltA();
+  mfrc522[i].PCD_StopCrypto1();
+
+}
+
+void woChords() {
+ 
+   //tone2.begin(6);
+   //tone2.play(0);
+  for (int i=0; i<numTones; i++) {
+    int dur = 2000/noteDurations[i];
+    Serial.println(noteDurations[i]);
+    tone1.play(melody[i]);
+    //digitalWrite(led1, 1);
+
+    delay(dur);
+  }
+  tone1.stop();
+}
+void withChords() {
+  //tone2.play(0);
+  Serial.write('aaa');
+  for (int i=0; i<numTones; i++) {
+    int dur = 2000/noteDurations[i];
+     tone1.play(melody[i]);
+    if (chords1[i] == R){
+      //tone2.stop();
+      tone3.stop();
+}
+    else{
+      //tone2.play(minor1[chords1[i]]);
+      tone3.play(minor2[chords1[i]]);
+}
+   
+    delay(dur);
+  }
+  tone1.stop();
+  //tone2.stop();
+  tone3.stop();
+
+}
+
+void setup() {
+  /* First disable the timer overflow interrupt*/
+ TIMSK2 &= ~(1<<TOIE2);
+
+ /* Configure timer2 in normal mode (no PWM) */
+ TCCR2A &= ~((1<<WGM21) | (1<<WGM20));
+ TCCR2B &= ~(1<<WGM22);
+
+ /* Select clock source: internal I/O clock */
+ ASSR &= ~(1<<AS2);
+
+ /* Disable Compare Match A interrupt (only overflow) */
+ TIMSK2 &= ~(1<<OCIE2A);
+
+ /* Configure the prescaler to CPU clock divided by 128 */
+ TCCR2B |= (1<<CS22) | (1<<CS20); // Set bits
+ TCCR2B &= ~(1<<CS21); // Clear bit
+
+ /* We need to calculate a proper value to load the counter.
+ * The following loads the value 248 into the Timer 2 counter
+ * The math behind this is:
+ * (Desired period) = 64us.
+ * (CPU frequency) / (prescaler value) = 125000 Hz -> 8us.
+ * (desired period) / 8us = 8.
+ * MAX(uint8) – 8 = 248;
+ */
+ /* Save value globally for later reload in ISR */
+ tcnt2 = 248;
+
+ /* Finally load end enable the timer */
+ TCNT2 = tcnt2;
+ TIMSK2 |= (1<<TOIE2);
+  Serial.begin(9600);   // Initialize serial communications with the PC
+  SPI.begin();      // Init SPI bus
+  mfrc522[0].PCD_Init(SS_PIN, RST_PIN);   // Init MFRC522
+  mfrc522[1].PCD_Init(SS_PIN2, RST_PIN);   // Init MFRC522
+  mfrc522[2].PCD_Init(SS_PIN3, RST_PIN);   // Init MFRC522
+  mfrc522[3].PCD_Init(SS_PIN4, RST_PIN);   // Init MFRC522
+  mfrc522[4].PCD_Init(SS_PIN5, RST_PIN);   // Init MFRC522
+  mfrc522[5].PCD_Init(SS_PIN6, RST_PIN);   // Init MFRC522
+  tone1.begin(4);
+  //tone2.begin(5);
+  tone3.begin(3);
+  delay(4);       // Optional delay. Some board do need more time after init to be ready, see Readme
+  //mfrc522.PCD_DumpVersionToSerial();  // Show details of PCD - MFRC522 Card Reader details
+  Serial.println(F("Scan PICC to see UID, SAK, type, and data blocks..."));
+}
+
+ISR(TIMER2_OVF_vect)
+{
+ /* Reload the timer */
+  if (zmienna == '2') {
+ TCNT2 = tcnt2;
+
+ count1++; count2++; count3++; 
+ if (count1 == 60)
+ {
+ digitalWrite(FREQ1, toggle1 == 0 ? HIGH : LOW);
+ toggle1 = ~toggle1;
+ count1 = 0;
+ }
+ if (count2 == 53)
+ {
+ digitalWrite(FREQ2, toggle2 == 0 ? HIGH : LOW);
+ toggle2 = ~toggle2;
+ count2 = 0;
+ }
+ if (count3 == 47)
+ {
+ digitalWrite(FREQ3, toggle3 == 0 ? HIGH : LOW);
+ toggle3 = ~toggle3;
+ count3 = 0;
+ }
+  }
+}
+
+
+void loop(void) {
+  // Reset the loop if no new card present on the sensor/reader. This saves the entire process when idle.
+   if (Serial.available()) {
+    zmienna = Serial.read();
+    if (zmienna=='1') {
+      sendRequest(0);
+      sendRequest(1);
+      sendRequest(2);
+    }
+    if (zmienna=='2') {
+      //withChords();
+    }
+   }
+  // withChords();
+  //delay(100);
+
+
+  // Select one of the cards
+  //if ( ! mfrc522.PICC_ReadCardSerial()) {
+  //  return;
+  //}
+  
+  // Dump debug info about the card; PICC_HaltA() is automatically called
+  //mfrc522.PICC_DumpToSerial(&(mfrc522.uid));
+}
